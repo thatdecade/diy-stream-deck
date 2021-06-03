@@ -2,6 +2,12 @@
  * by: Alex - Super Make Something
  * date: November 8th, 2020
  * license: Creative Commons - Attribution - Non-Commercial.  More information available at: http://creativecommons.org/licenses/by-nc/3.0/
+ * 
+ * -------------------------------------
+ * 
+ * Dustin Westaby - June 3, 2021 - Added macro key combos.
+ * 
+ * 
  */
 
 #define ENCODER_DO_NOT_USE_INTERRUPTS
@@ -11,41 +17,45 @@
 Encoder upDown(10,15);
 Encoder leftRight(14,16);
 
-#define MAX_MACRO_SIZE 16
+#define MAX_MACRO_SIZE 17
 
 typedef struct {
     uint8_t pin;
-    uint8_t keys[MAX_MACRO_SIZE];
     bool combineKeypresses; // allow key combos
     uint8_t pinStateLast;
+    uint8_t keys[MAX_MACRO_SIZE];
 } pinKey_t;
 
 #define NUM_KEYS 8
 
 //TBD: Keyboard.print() would be better at sending long strings
+//can init keys as a void*, move to end of struct
+//do a string size check, if 1, Keyboard.press() 1 key.  If > 1, Keyboard.print() the string
 
 //Keys are sent sequentially when combineKeypresses = false, or all at once when combineKeypresses = true
 pinKey_t pinKey1[NUM_KEYS] = {
-    /* button r1.c2 */ { 2, {'u', 'i', KEY_RETURN, 'g', '0', '.', '0', '5', KEY_RETURN, 'g', 'd', '0', '0', '5', KEY_RETURN, 0}, false, HIGH },
-    /*  PAGE SELECT */ { 3, {'0', 0}, false, HIGH },
-    /* button r2.c1 */ { 4, {'z', ' ', '1', ' ', '6', ' ', '2', '6', ' ', '2', '9', KEY_RETURN, 0}, false, HIGH },
-    /* button r2.c2 */ { 5, {'z', ' ', '2', '1', ' ', '2', '6', KEY_RETURN, 0}, false, HIGH },
-    /* button r2.c3 */ { 6, {'B', KEY_RETURN, 0}, false, HIGH },
-    /* knob 1       */ { 7, {'a', 'b', 0}, false, HIGH },
-    /* knob 2       */ { 8, {'a', 'b', 0}, false, HIGH },
-    /* button r1.c1 */ { 9, {'u', 'm', 'm', KEY_RETURN, 'g', '1', KEY_RETURN, 'g', 'd', '1', KEY_RETURN, 0},      false, HIGH },
+    /* button r1.c1 */ { 9, false, HIGH, {'u', 'm', 'm', KEY_RETURN, 'g', '1', KEY_RETURN, 'g', 'd', '1', KEY_RETURN, 0}, },
+    /* button r1.c2 */ { 2, false, HIGH, {'u', 'i', KEY_RETURN, 'g', '0', '.', '0', '5', KEY_RETURN, 'g', 'd', '0', '.', '0', '5', KEY_RETURN, 0}, },
+    /* button r1.c3 */ { 3, false, HIGH, {'z', 'u', KEY_RETURN, 0}, },
+    /* button r2.c1 */ { 4, false, HIGH, {'z', ' ', '1', ' ', '6', ' ', '2', '6', ' ', '2', '9', KEY_RETURN, 0}, },
+    /* button r2.c2 */ { 5, false, HIGH, {'z', ' ', '2', '1', ' ', '2', '6', KEY_RETURN, 0}, },
+    /* button r2.c3 */ { 6, false, HIGH, {'B', KEY_RETURN, 0}, },
+    /* knob 1       */ { 7, false, HIGH, {'a', 'b', 0}, },
+    /* knob 2       */ { 8, false, HIGH, {'a', 'b', 0}, },
 };
 
 pinKey_t pinKey2[NUM_KEYS] = {
-    /* button r1.c2 */ { 2, {KEY_LEFT_CTRL, 'r', 0}, true, HIGH }, //
-    /*  PAGE SELECT */ { 3, {'a', 'b', 'c', 0}, false, HIGH }, //
-    /* button r2.c1 */ { 4, {KEY_F2, 0}, false, HIGH }, //
-    /* button r2.c2 */ { 5, {'a', 'b', 'c', 0}, false, HIGH }, //
-    /* button r2.c3 */ { 6, {'a', 'b', 'c', 0}, false, HIGH }, //
-    /* knob 1       */ { 7, {'a', 'b', 'c', 0}, false, HIGH }, //
-    /* knob 2       */ { 8, {'a', 'b', 'c', 0}, false, HIGH }, //
-    /* button r1.c1 */ { 9, {KEY_LEFT_CTRL, 'e', 0}, true, HIGH }, //
+    /* button r1.c1 */ { 9, true,  HIGH, {KEY_LEFT_CTRL, 'e', 0}, },
+    /* button r1.c2 */ { 2, true,  HIGH, {KEY_LEFT_CTRL, 'r', 0}, },
+    /* button r1.c3 */ { 3, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* button r2.c1 */ { 4, false, HIGH, {KEY_F2, 0}, },
+    /* button r2.c2 */ { 5, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* button r2.c3 */ { 6, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* knob 1       */ { 7, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* knob 2       */ { 8, false, HIGH, {'a', 'b', 'c', 0}, },
 };
+
+#define INDEX_TO_PAGE_SELECT_PIN2KEY 7 //knob 2
 
 int pageFlag = 1; // Flag for button pages
 
@@ -64,7 +74,7 @@ void setup()
   //Serial.begin(115200);
   //while (!Serial);
 
-  Serial.print("Initializing Pins...");
+  //Serial.print("Initializing Pins...");
 
   // Initialize pins
   for (uint8_t i = 0; i < NUM_KEYS; i++)
@@ -76,17 +86,17 @@ void setup()
       pinKey1[i].pinStateLast = digitalRead(pinKey1[i].pin);
   }
 
-  Serial.println(" Done!");
+  //Serial.println(" Done!");
 
-  Serial.print("Initializing Keyboard...");
-  //Keyboard.begin();
-  Serial.println(" Done!");
+  //Serial.print("Initializing Keyboard...");
+  Keyboard.begin();
+  //Serial.println(" Done!");
 
   delay(50);
 
   digitalWrite(A0, LOW);
 
-  Serial.println("Setup Complete!");
+  //Serial.println("Setup Complete!");
 }
 
 void loop()
@@ -119,31 +129,25 @@ void process_buttons()
         // Check if pin changed since last read
         if (pinKey1[i].pinStateLast != pinState)
         {
-            Serial.print("Button Changed: ");
-            Serial.println(i);
+            //Serial.print("Button Changed: ");
+            //Serial.println(i);
 
             if(pinState == LOW)
             {
-              Serial.print("Button Pressed: ");
-              Serial.println(i);
+              //Serial.print("Button Pressed: ");
+              //Serial.println(i);
+
               //button was "just" pressed
-              switch (i)
-              {
-                case 0: // pin 2
-                case 2: // pin 4
-                case 3: // pin 5
-                case 4: // pin 6
-                case 5: // pin 7
-                case 6: // pin 8
-                case 7: // pin 9
-                  press_key_from_list(i);
-                  break;
-                case 1: // pin 3
-                  change_page();
-                  break;
-                default:
-                  break;
-              }
+              if (i == INDEX_TO_PAGE_SELECT_PIN2KEY) // pin 3
+            	{
+            		change_page();
+            	}
+            	else
+							{
+								press_key_from_list(i);
+							}
+
+             delay(100); //small delay to prevent repeat presses
 
             } //end button just pressed
         } //end key change
@@ -174,13 +178,13 @@ void press_key_from_list(byte i)
 
   for (int j; j < MAX_MACRO_SIZE; j++)
   {
-    Serial.println(*current_key, HEX);
+    //Serial.println(*current_key, HEX);
     Keyboard.press(*current_key);
 
     if(combine_keypresses == false)
     {
       Keyboard.releaseAll();
-      Serial.println(" Key Released");
+      //Serial.println(" Key Released");
     }
 
     current_key++;
@@ -205,8 +209,8 @@ void change_page()
       pageFlag = 1;
       digitalWrite(A0, LOW);
     }
-    Serial.print("Page Flag: ");
-    Serial.println(pageFlag);
+    //Serial.print("Page Flag: ");
+    //Serial.println(pageFlag);
 }
 
 /* ************************************ */
