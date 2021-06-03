@@ -11,35 +11,41 @@
 Encoder upDown(10,15);
 Encoder leftRight(14,16);
 
+#define MAX_MACRO_SIZE 16
+
 typedef struct {
     uint8_t pin;
-    uint8_t key;
+    uint8_t keys[MAX_MACRO_SIZE];
+    bool combineKeypresses; // allow key combos
     uint8_t pinStateLast;
 } pinKey_t;
 
 #define NUM_KEYS 8
 
-pinKey_t pinKey1[NUM_KEYS] = {
-    { 2, 'a', HIGH }, //button r1.c2    
-    { 3, 'b', HIGH }, // PAGE SELECT    
-    { 4, 'c', HIGH }, //button r2.c1    
-    { 5, 'd', HIGH }, //button r2.c2    
-    { 6, 'e', HIGH }, //button r2.c3    
-    { 7, 'f', HIGH }, //knob 1          
-    { 8, 'g', HIGH }, //knob 2   
-    { 9, 'h', HIGH }, //button r1.c1           
-}; 
+//TBD: Keyboard.print() would be better at sending long strings
 
-pinKey_t pinKey2[NUM_KEYS] = {  
-    { 2, 'j', HIGH }, //button r1.c2    
-    { 3, 'k', HIGH }, // PAGE SELECT    
-    { 4, 'l', HIGH }, //button r2.c1    
-    { 5, 'm', HIGH }, //button r2.c2    
-    { 6, 'n', HIGH }, //button r2.c3    
-    { 7, 'o', HIGH }, //knob 1          
-    { 8, 'p', HIGH }, //knob 2   
-    { 9, 'q', HIGH }, //button r1.c1         
-}; 
+//Keys are sent sequentially when combineKeypresses = false, or all at once when combineKeypresses = true
+pinKey_t pinKey1[NUM_KEYS] = {
+    /* button r1.c2 */ { 2, {'u', 'i', KEY_RETURN, 'g', '0', '.', '0', '5', KEY_RETURN, 'g', 'd', '0', '0', '5', KEY_RETURN, 0}, false, HIGH },
+    /*  PAGE SELECT */ { 3, {'0', 0}, false, HIGH },
+    /* button r2.c1 */ { 4, {'z', ' ', '1', ' ', '6', ' ', '2', '6', ' ', '2', '9', KEY_RETURN, 0}, false, HIGH },
+    /* button r2.c2 */ { 5, {'z', ' ', '2', '1', ' ', '2', '6', KEY_RETURN, 0}, false, HIGH },
+    /* button r2.c3 */ { 6, {'B', KEY_RETURN, 0}, false, HIGH },
+    /* knob 1       */ { 7, {'a', 'b', 0}, false, HIGH },
+    /* knob 2       */ { 8, {'a', 'b', 0}, false, HIGH },
+    /* button r1.c1 */ { 9, {'u', 'm', 'm', KEY_RETURN, 'g', '1', KEY_RETURN, 'g', 'd', '1', KEY_RETURN, 0},      false, HIGH },
+};
+
+pinKey_t pinKey2[NUM_KEYS] = {
+    /* button r1.c2 */ { 2, {KEY_LEFT_CTRL, 'r', 0}, true, HIGH }, //
+    /*  PAGE SELECT */ { 3, {'a', 'b', 'c', 0}, false, HIGH }, //
+    /* button r2.c1 */ { 4, {KEY_F2, 0}, false, HIGH }, //
+    /* button r2.c2 */ { 5, {'a', 'b', 'c', 0}, false, HIGH }, //
+    /* button r2.c3 */ { 6, {'a', 'b', 'c', 0}, false, HIGH }, //
+    /* knob 1       */ { 7, {'a', 'b', 'c', 0}, false, HIGH }, //
+    /* knob 2       */ { 8, {'a', 'b', 'c', 0}, false, HIGH }, //
+    /* button r1.c1 */ { 9, {KEY_LEFT_CTRL, 'e', 0}, true, HIGH }, //
+};
 
 int pageFlag = 1; // Flag for button pages
 
@@ -53,15 +59,15 @@ int counterLeftRight = 0;
 
 bool pressed_flag = false;
 
-void setup() 
+void setup()
 {
-  Serial.begin(115200);
-  while (!Serial);
-  
+  //Serial.begin(115200);
+  //while (!Serial);
+
   Serial.print("Initializing Pins...");
 
   // Initialize pins
-  for (uint8_t i = 0; i < NUM_KEYS; i++) 
+  for (uint8_t i = 0; i < NUM_KEYS; i++)
   {
       // Set pin to input
       pinMode(pinKey1[i].pin, INPUT_PULLUP);
@@ -69,7 +75,7 @@ void setup()
       // Set current pin state
       pinKey1[i].pinStateLast = digitalRead(pinKey1[i].pin);
   }
-  
+
   Serial.println(" Done!");
 
   Serial.print("Initializing Keyboard...");
@@ -79,11 +85,11 @@ void setup()
   delay(50);
 
   digitalWrite(A0, LOW);
-  
+
   Serial.println("Setup Complete!");
 }
 
-void loop() 
+void loop()
 {
   process_buttons();
   process_encoders();
@@ -103,19 +109,19 @@ void process_buttons()
 {
     uint8_t pinState;
     uint8_t pinsState = 0;
-    
+
     // BUTTONS
-    for (uint8_t i = 0; i < NUM_KEYS; i++) 
+    for (uint8_t i = 0; i < NUM_KEYS; i++)
     {
         pinState = digitalRead(pinKey1[i].pin);
         pinsState |= pinState << i;
-        
+
         // Check if pin changed since last read
-        if (pinKey1[i].pinStateLast != pinState) 
+        if (pinKey1[i].pinStateLast != pinState)
         {
             Serial.print("Button Changed: ");
             Serial.println(i);
-  
+
             if(pinState == LOW)
             {
               Serial.print("Button Pressed: ");
@@ -138,7 +144,7 @@ void process_buttons()
                 default:
                   break;
               }
-              
+
             } //end button just pressed
         } //end key change
         pinKey1[i].pinStateLast = pinState;
@@ -150,17 +156,41 @@ void process_buttons()
 
 void press_key_from_list(byte i)
 {
-    switch (pageFlag) //Depending on pageFlag, send different keystroke
+  uint8_t *current_key;
+  bool combine_keypresses;
+
+  //grab pointer to the macro list
+  //press the keys sequentially
+  if (pageFlag == 1) //Depending on pageFlag, send different keystroke
+  {
+    current_key = &pinKey1[i].keys[0];
+    combine_keypresses = pinKey1[i].combineKeypresses;
+  }
+  else
+  {
+    current_key = &pinKey2[i].keys[0];
+    combine_keypresses = pinKey2[i].combineKeypresses;
+  }
+
+  for (int j; j < MAX_MACRO_SIZE; j++)
+  {
+    Serial.println(*current_key, HEX);
+    Keyboard.press(*current_key);
+
+    if(combine_keypresses == false)
     {
-      case 1:
-        Keyboard.press(pinKey1[i].key);
-        break;
-      default:
-        Keyboard.press(pinKey2[i].key);
-        break;
+      Keyboard.releaseAll();
+      Serial.println(" Key Released");
     }
-    pressed_flag = true;
-    Serial.print("Key Pressed");
+
+    current_key++;
+    if(*current_key == 0)
+    {
+      break;
+    }
+  }
+  pressed_flag = true;
+  //Serial.println(" Key Pressed");
 }
 
 void change_page()
@@ -217,7 +247,7 @@ void process_encoders()
     }
     posUpDownPrev = posUpDown;
     //Serial.println(counterUpDown);
-  
+
     posLeftRight = leftRight.read(); // Left/right encoder
     if (posLeftRight!=posLeftRightPrev) //If new position doesn't equal previous position
     {
