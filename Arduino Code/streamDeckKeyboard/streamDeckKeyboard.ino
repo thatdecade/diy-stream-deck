@@ -32,27 +32,46 @@ typedef struct {
 //can init keys as a void*, move to end of struct
 //do a string size check, if 1, Keyboard.press() 1 key.  If > 1, Keyboard.print() the string
 
+typedef enum
+{
+  KEY_R1_C1_INDEX = 0,
+  KEY_R2_C1_INDEX,
+  KEY_R3_C1_INDEX,
+  KEY_R1_C2_INDEX,
+  KEY_R2_C2_INDEX,
+  KEY_R3_C2_INDEX,
+  KNOB_1_INDEX,
+  KNOB_2_INDEX,
+};
+
+#define NUM_DIMS 3
+uint8_t macro_r1_c1[NUM_DIMS][MAX_MACRO_SIZE] = 
+{ { 'u', 'm', 'm', KEY_RETURN, 'g', '1',                KEY_RETURN, 'g', 'd', '1',                KEY_RETURN, 0},
+  { 'u', 'i',      KEY_RETURN, 'g', '0', '.', '0', '5', KEY_RETURN, 'g', 'd', '0', '.', '0', '5', KEY_RETURN, 0},
+  { 'u', 'm',      KEY_RETURN, 'g', '1', '0',           KEY_RETURN, 'g', 'd', '1', '0', '0',      KEY_RETURN, 0},
+};
+
 //Keys are sent sequentially when combineKeypresses = false, or all at once when combineKeypresses = true
-pinKey_t pinKey1[NUM_KEYS] = {
-    /* button r1.c1 */ { 9, false, HIGH, {'u', 'm', 'm', KEY_RETURN, 'g', '1', KEY_RETURN, 'g', 'd', '1', KEY_RETURN, 0}, },
-    /* button r1.c2 */ { 2, false, HIGH, {'u', 'i', KEY_RETURN, 'g', '0', '.', '0', '5', KEY_RETURN, 'g', 'd', '0', '.', '0', '5', KEY_RETURN, 0}, },
-    /* button r1.c3 */ { 3, false, HIGH, {'z', 'u', KEY_RETURN, 0}, },
-    /* button r2.c1 */ { 4, false, HIGH, {'z', ' ', '1', ' ', '6', ' ', '2', '6', ' ', '2', '9', KEY_RETURN, 0}, },
-    /* button r2.c2 */ { 5, false, HIGH, {'z', ' ', '2', '1', ' ', '2', '6', KEY_RETURN, 0}, },
-    /* button r2.c3 */ { 6, false, HIGH, {'B', KEY_RETURN, 0}, },
-    /* knob 1       */ { 7, false, HIGH, {'a', 'b', 0}, },
-    /* knob 2       */ { 8, false, HIGH, {'a', 'b', 0}, },
+pinKey_t pinKey1[NUM_KEYS] = {         /* { pin, combo, state, keys } */
+    /* button r1.c1 MM DIMENSIONS */      { 9, false, HIGH, {'u', 'm', 'm', KEY_RETURN, 'g', '1', KEY_RETURN, 'g', 'd', '1', KEY_RETURN, 0}, },
+    /* button r2.c1 ROUTE */              { 4, false, HIGH, {KEY_F2, 0}, },
+    /* button r1.c3 SHOW/HIDE UNROUTED */ { 3, false, HIGH, {'z', 'u', KEY_RETURN, 0}, },
+    /* button r2.c1 VIEW COPPER */        { 4, false, HIGH, {'z', ' ', '1', ' ', '6', ' ', '2', '6', ' ', '2', '9', KEY_RETURN, 0}, },
+    /* button r2.c2 FLIP TOP    */        { 5, false, HIGH, {'B', KEY_RETURN, 'z', ' ', '1', ' ', '2', '6', KEY_RETURN, 0}, },
+    /* button r2.c3 FLIP BOTTOM */        { 6, false, HIGH, {'B', KEY_RETURN, 'z', ' ', '6', ' ', '2', '9', KEY_RETURN, 0}, },
+    /* knob 1       */                    { 7, false, HIGH, {'a', 'b', 0}, },
+    /* knob 2       */                    { 8, false, HIGH, {'a', 'b', 0}, },
 };
 
 pinKey_t pinKey2[NUM_KEYS] = {
-    /* button r1.c1 */ { 9, true,  HIGH, {KEY_LEFT_CTRL, 'e', 0}, },
-    /* button r1.c2 */ { 2, true,  HIGH, {KEY_LEFT_CTRL, 'r', 0}, },
-    /* button r1.c3 */ { 3, false, HIGH, {'a', 'b', 'c', 0}, },
-    /* button r2.c1 */ { 4, false, HIGH, {KEY_F2, 0}, },
-    /* button r2.c2 */ { 5, false, HIGH, {'a', 'b', 'c', 0}, },
-    /* button r2.c3 */ { 6, false, HIGH, {'a', 'b', 'c', 0}, },
-    /* knob 1       */ { 7, false, HIGH, {'a', 'b', 'c', 0}, },
-    /* knob 2       */ { 8, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* button r1.c1 MOVE */   { 9, true,  HIGH, {KEY_LEFT_CTRL, 'e', 0}, },
+    /* button r1.c2 ROTATE */ { 2, true,  HIGH, {KEY_LEFT_CTRL, 'r', 0}, },
+    /* button r1.c3 */        { 3, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* button r2.c1 */        { 4, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* button r2.c2 */        { 5, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* button r2.c3 */        { 6, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* knob 1       */        { 7, false, HIGH, {'a', 'b', 'c', 0}, },
+    /* knob 2       */        { 8, false, HIGH, {'a', 'b', 'c', 0}, },
 };
 
 #define INDEX_TO_PAGE_SELECT_PIN2KEY 7 //knob 2
@@ -162,13 +181,29 @@ void press_key_from_list(byte i)
 {
   uint8_t *current_key;
   bool combine_keypresses;
+  static uint8_t macro_slot; //macro_r1_c1
 
   //grab pointer to the macro list
   //press the keys sequentially
   if (pageFlag == 1) //Depending on pageFlag, send different keystroke
   {
-    current_key = &pinKey1[i].keys[0];
-    combine_keypresses = pinKey1[i].combineKeypresses;
+    if(i == KEY_R1_C1_INDEX)
+    {
+      //use rotating macro
+      current_key = &macro_r1_c1[macro_slot][0];
+      combine_keypresses = pinKey1[i].combineKeypresses;
+
+      macro_slot++;
+      if (macro_slot >= NUM_DIMS)
+      {
+        macro_slot = 0;
+      }
+    }
+    else
+    {
+      current_key = &pinKey1[i].keys[0];
+      combine_keypresses = pinKey1[i].combineKeypresses;
+    }
   }
   else
   {
